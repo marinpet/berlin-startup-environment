@@ -85,7 +85,7 @@ def _(mo):
 
 @app.cell
 def _(df):
-    small_df = df.select(["name", "hq_locations", "type", "investors", "year_became_unicorn", "launch_year", "tech_stack", "technologies", "lists", "industries", "service_industries", "income_streams", "latest_valuation_enhanced", "sdgs", "ipo_round", "corporate_industries", "innovation_corporate_rank", "is_ai_data", "growth_stage", "investments", "kpi_summary"])
+    small_df = df.select(["name", "hq_locations", "launch_year", "type", "industries", "technologies", "tech_stack", "service_industries", "corporate_industries", "is_ai_data", "growth_stage", "investors", "year_became_unicorn", "income_streams", "latest_valuation_enhanced", "sdgs", "ipo_round", "innovation_corporate_rank", "investments"])
     small_df.head()
     return (small_df,)
 
@@ -93,25 +93,37 @@ def _(df):
 @app.cell
 def _(pl, small_df):
     # explode location
-    df_flat = (
+    df_location = (
         small_df.explode(["hq_locations"])
           .with_columns([
-              pl.col("hq_locations").struct.field("city").struct.field("name").alias("city")
-              # add more fields as needed
-          ])
-          .drop("hq_locations")  # drop original struct column
+              pl.col("hq_locations").struct.field("city").struct.field("name").alias("city"),
+        ]) 
+          .drop(["hq_locations"])  # drop original struct column
     )
 
+    df_location.head(20)
+    return (df_location,)
+
+
+@app.cell
+def _(df_location, pl):
     # explode industries
-    df_flat = (df_flat
+    df_ind = (df_location
         .explode("industries")
         .with_columns([
             pl.col("industries").struct.field("name").alias("industry")
         ])
         .drop("industries")
               )
+
+    df_ind.head(20)
+    return (df_ind,)
+
+
+@app.cell
+def _(df_ind, pl):
     # explode technologies
-    df_flat = (df_flat
+    df_tech = (df_ind
                .explode("technologies")
                .with_columns([
                    pl.col("technologies").struct.field("name").alias("technology")
@@ -119,72 +131,114 @@ def _(pl, small_df):
                .drop("technologies")
     )
 
+    df_tech.head(20)
+    return (df_tech,)
+
+
+@app.cell
+def _(df_tech, pl):
     # explode tech_stack
-    df_flat = (df_flat
+    df_tech_stack = (df_tech
               .explode("tech_stack")
               .with_columns([
                   pl.col("tech_stack").struct.field("name").alias("tech_stack_name")
               ])
                .drop("tech_stack")
               )
+    df_tech_stack.head(10)
+    return (df_tech_stack,)
 
+
+@app.cell
+def _(df_tech_stack, pl):
     # explode service_industries
-    df_flat = (df_flat
+    df_service = (df_tech_stack
               .explode("service_industries")
               .with_columns([
-                  pl.col("service_industries").struct.field("name").alias("service_industry")
+                  pl.col("service_industries").struct.field("name").alias("service_industries_name")
               ])
 
               )
 
-    df_flat = (
-        df_flat.select("name", "city", "launch_year", "type", "industry", "technology", "tech_stack_name", "service_industry", "investors", "year_became_unicorn", "lists", "income_streams", "latest_valuation_enhanced", "sdgs", "ipo_round", "corporate_industries", "innovation_corporate_rank", "is_ai_data", "growth_stage", "investments", "kpi_summary"))
+    # explode corporate_industries
+    df_corporate = (df_service
+              .explode("corporate_industries")
+               .with_columns([
+                   pl.col("corporate_industries").struct.field("name").alias("corporate_industries_name")
+               ])
+              )
+    df_corporate.head(20)
+    return (df_corporate,)
 
 
-    df_flat.head()
+@app.cell
+def _(df_corporate, pl):
+    # explode investors
+    df_investors = (
+        df_corporate
+        # grab the list-of-investor-dicts → new column `inv`
+        .with_columns(pl.col("investors").struct.field("items").alias("inv"))
+        .explode("inv")
+        .with_columns([
+            pl.col("inv").struct.field("type").alias("investor_type"),
+            pl.col("inv").struct.field("entity_type").alias("investor_entity_type"),
+            pl.col("inv").struct.field("name").alias("investor_name"),
+            pl.col("inv").struct.field("exited").alias("investor_exited"),
+            pl.col("inv").struct.field("lead").alias("investor_lead")
 
+        ])
+        .drop(["inv", "investors"])
+    )
+    df_investors.head(10)
+    return (df_investors,)
+
+
+@app.cell
+def _(df_investors, pl):
+    # explode income streams
+    df_income_streams = (df_investors
+                         .explode("income_streams")
+                          .with_columns([
+                              pl.col("income_streams").struct.field("name").alias("income_stream_name")
+                          ])
+                          .drop("income_streams")
+                         )
+    df_income_streams.head(10)
+    return (df_income_streams,)
+
+
+@app.cell
+def _(df_income_streams):
+    # explode latest_valuation_enhanced
+
+    valuation_cols = ["year", "month", 
+        "source", "source_round",
+        "valuation", "valuation_min", "valuation_max", "valuation_currency",
+        "market_cap","net_debt"]
+
+    df_valuation = (df_income_streams
+                   .unnest("latest_valuation_enhanced")
+        .rename({c: f"valuation_{c}" for c in valuation_cols})
+                   )
+
+    df_valuation.head(20)
+    return (df_valuation,)
+
+
+@app.cell
+def _(df_valuation):
+    df_flat = (df_valuation
+              .drop(["sdgs", "ipo_round", "investments"]))
+
+    df_flat.head(20)
     return (df_flat,)
 
 
 @app.cell
 def _(df_flat):
-    df_flat.select("service_industry").unique()
-    return
-
-
-@app.cell
-def _(df):
-    df.select("service_industries").unique()
-    return
-
-
-@app.cell
-def _(df, pl):
-    df.filter(pl.col("service_industries").is_not_null())
-    return
-
-
-@app.cell
-def _(df, pl):
-    (df
-        .filter(pl.col("service_industries").apply(lambda x: len(x) if x is not None else 0) > 0)
-        .select("name", "service_industries")
-    )
-    return
-
-
-@app.cell
-def _(df, pl):
-    (df
-        .filter(pl.col("name") == "Elestia")
-        .select("name", "service_industries")
-    )
-    return
-
-
-@app.cell
-def _(df):
-    df.schema.get("service_industries")
+    df_flat.write_parquet("data/processed/processed_startup_berlin_28072025.parquet",
+                         compression = "zstd",
+                         compression_level = 3)
     return
 
 
