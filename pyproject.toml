@@ -10,7 +10,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "marimo (>=0.14.16,<0.15.0)",
-    "polars (>=1.32.0,<2.0.0)"
+    "polars (>=1.32.0,<2.0.0)",
+    "matplotlib (>=3.10.5,<4.0.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
+    "pyarrow (>=21.0.0,<22.0.0)"
 ]
 
 
