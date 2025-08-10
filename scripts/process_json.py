@@ -158,6 +158,7 @@ def _(df_tech_stack, pl):
               .with_columns([
                   pl.col("service_industries").struct.field("name").alias("service_industries_name")
               ])
+                  .drop("service_industried")
 
               )
 
@@ -167,6 +168,7 @@ def _(df_tech_stack, pl):
                .with_columns([
                    pl.col("corporate_industries").struct.field("name").alias("corporate_industries_name")
                ])
+                    .drop("corporate_industries")
               )
     df_corporate.head(20)
     return (df_corporate,)
