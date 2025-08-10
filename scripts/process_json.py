@@ -158,7 +158,7 @@ def _(df_tech_stack, pl):
               .with_columns([
                   pl.col("service_industries").struct.field("name").alias("service_industries_name")
               ])
-                  .drop("service_industried")
+                  .drop("service_industries")
 
               )
 
