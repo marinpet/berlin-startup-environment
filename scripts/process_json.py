@@ -79,6 +79,7 @@ def _(mo):
     * investments
     * kpi_summary
     * type
+    * sub_industries
     """
     )
     return
@@ -86,7 +87,7 @@ def _(mo):
 
 @app.cell
 def _(df):
-    small_df = df.select(["name", "hq_locations", "launch_year", "type", "industries", "technologies", "tech_stack", "service_industries", "corporate_industries", "is_ai_data", "growth_stage", "investors", "year_became_unicorn", "income_streams", "latest_valuation_enhanced", "sdgs", "ipo_round", "innovation_corporate_rank", "investments"])
+    small_df = df.select(["name", "hq_locations", "launch_year", "type", "industries", "sub_industries", "technologies", "tech_stack", "service_industries", "corporate_industries", "is_ai_data", "growth_stage", "investors", "year_became_unicorn", "income_streams", "latest_valuation_enhanced", "sdgs", "ipo_round", "innovation_corporate_rank", "investments"])
     small_df.head()
     return (small_df,)
 
@@ -229,8 +230,24 @@ def _(df_income_streams):
 
 
 @app.cell
-def _(df_valuation):
-    df_flat = (df_valuation
+def _(df_valuation, pl):
+    # explode subindustries
+
+    df_subind = (df_valuation
+                .explode("sub_industries")
+                 .with_columns([
+                     pl.col("sub_industries").struct.field("name").alias("sub_industry_name")
+                 ])
+                 .drop("sub_industries")
+                )
+
+    df_subind.head(10)
+    return (df_subind,)
+
+
+@app.cell
+def _(df_subind):
+    df_flat = (df_subind
               .drop(["sdgs", "ipo_round", "investments"]))
 
     df_flat.head(20)
