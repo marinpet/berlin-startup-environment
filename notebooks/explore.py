@@ -76,26 +76,14 @@ def _(city_counts):
 
 
 @app.cell
-def _(df_name, pl):
-    df_berlin = df_name.filter(pl.col("city").str.contains("Berlin"))
-    return (df_berlin,)
-
-
-@app.cell
-def _(df_berlin):
-    df_berlin.select("city").unique()
-    return
-
-
-@app.cell
 def _(mo):
     mo.md(r"""## Companies launched per year""")
     return
 
 
 @app.cell
-def _(df_berlin, pl):
-    launch_counts = (df_berlin
+def _(df, pl):
+    launch_counts = (df
                     .filter(pl.col("launch_year").is_not_null())
                      .group_by("launch_year")
                      .agg(pl.count("name").alias("company_count"))
@@ -115,7 +103,7 @@ def _(launch_counts):
 def _(VISUALS_DIR, launch_counts_pd, plt, sns):
     sns.set_theme(style="whitegrid")
     sns.lineplot(data=launch_counts_pd, x="launch_year", y="company_count", marker="o")
-    plt.title("Companies launched per year in Berlin")
+    plt.title("Companies launched per year")
     plt.xlabel("launch year")
     plt.ylabel("number of companies")
     plt.figtext(
@@ -123,7 +111,7 @@ def _(VISUALS_DIR, launch_counts_pd, plt, sns):
         "*Source: Startup Map Berlin, processed by my scraper\nData from 28.07.2025",
         ha="center", va="top", fontsize=9, color="gray"
     )
-    plt.savefig(VISUALS_DIR / "companies_launched_per_year_in_berlin.png")
+    plt.savefig(VISUALS_DIR / "companies_launched_per_year.png")
     plt.show()
     return
 
@@ -138,7 +126,7 @@ def _(launch_counts_pd):
 def _(VISUALS_DIR, launch_counts_2010_pd, plt, sns):
     sns.set_theme(style="whitegrid")
     sns.lineplot(data= launch_counts_2010_pd, x = "launch_year", y = "company_count", marker = "o")
-    plt.title("Companies launched per year in Berlin since 2010")
+    plt.title("Companies launched per year since 2010")
     plt.xlabel("launch year")
     plt.ylabel("number of companies")
     plt.figtext(
@@ -146,14 +134,14 @@ def _(VISUALS_DIR, launch_counts_2010_pd, plt, sns):
         "*Source: Startup Map Berlin, processed by my scraper\nData from 28.07.2025",
         ha="center", va="top", fontsize=9, color="gray"
     )
-    plt.savefig(VISUALS_DIR / "companies_launched_per_year_in_berlin_since_2010.png")
+    plt.savefig(VISUALS_DIR / "companies_launched_per_year_since_2010.png")
     plt.show()
     return
 
 
 @app.cell
 def _(mo):
-    mo.md(r"""### Median valuation per year""")
+    mo.md(r"""### Industry growth over time""")
     return
 
 
@@ -165,19 +153,122 @@ def _(df):
 
 @app.cell
 def _(df, pl):
-    df_valuation = (df
-        .select(["name", "city", "launch_year", "growth_stage", "valuation", "valuation_market_cap"])
-        .unique(subset=["name"], keep="first")
-        .filter(pl.col("city").str.contains("Berlin"))
-        .filter(pl.col("valuation").is_not_null())
-                   )
-    df_valuation
-    return (df_valuation,)
+    df_industry = (df
+        .select(["name", "city", "launch_year", "growth_stage", "industry"])
+        .unique(subset=["name", "city", "launch_year", "growth_stage", "industry"], keep="first")
+        .filter(pl.col("industry").is_not_null() & pl.col("launch_year").is_not_null())
+            )
+    df_industry
+    return (df_industry,)
 
 
 @app.cell
-def _(df_valuation):
-    df_valuation.select("valuation_market_cap").unique()
+def _(df_industry, pl):
+    count_industry_launch_year = (df_industry
+                                 .group_by(["launch_year", "industry"])
+                                 .agg(pl.len().alias("count"))
+                                 )
+    count_industry_launch_year
+    return (count_industry_launch_year,)
+
+
+@app.cell
+def _(count_industry_launch_year):
+    count_industry_launch_year.select("industry").unique()
+    return
+
+
+@app.cell
+def _(count_industry_launch_year, pl):
+    # pick top industries
+    top_n = 6
+
+    tops_pl = (count_industry_launch_year
+              .group_by("industry")
+              .agg(pl.col("count").sum().alias("total"))
+              .sort("total", descending = True)
+               .head(top_n)
+               #.select("industry")
+              )
+    return top_n, tops_pl
+
+
+@app.cell
+def _(tops_pl):
+    top_industries = tops_pl.select("industry").to_series().to_list()
+    return (top_industries,)
+
+
+@app.cell
+def _(top_industries):
+    top_industries
+    return
+
+
+@app.cell
+def _(count_industry_launch_year, pl, top_industries):
+    industry_trends_pl = (count_industry_launch_year
+                         .filter(pl.col("industry").is_in(top_industries))
+                          .sort("launch_year")
+                         )
+    return (industry_trends_pl,)
+
+
+@app.cell
+def _(industry_trends_pl):
+    industry_trends_pd = industry_trends_pl.to_pandas()
+    return (industry_trends_pd,)
+
+
+@app.cell
+def _(industry_trends_pd, plt, sns, top_n):
+    plt.figure(figsize=(12, 6))
+    sns.lineplot(data=industry_trends_pd, x="launch_year", y="count", hue="industry", marker="o")
+    plt.title(f"Top {top_n} Industries by Launch Year")
+    plt.xlabel("Launch Year")
+    plt.ylabel("Company Count")
+    plt.legend(title="Industry")
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""### AI vs non-AI over time""")
+    return
+
+
+@app.cell
+def _(df, pl):
+    ai_trend = (df
+               .select(["launch_year", "is_ai_data"])
+               .filter(pl.col("launch_year").is_not_null() & pl.col("is_ai_data").is_not_null())
+                .group_by(["launch_year", "is_ai_data"])
+                .agg(pl.len().alias("counts"))
+                .sort(by = "launch_year")
+               )
+    ai_trend
+    return (ai_trend,)
+
+
+@app.cell
+def _(ai_trend):
+    ai_trend_pd = ai_trend.to_pandas()
+    return (ai_trend_pd,)
+
+
+@app.cell
+def _(ai_trend_pd, plt, sns):
+    plt.figure(figsize=(10, 5))
+    sns.lineplot(data=ai_trend_pd, x="launch_year", y="counts", hue="is_ai_data", marker="o")
+    plt.title("AI vs Non AI Companies Over Time")
+    plt.xlabel("Launch Year")
+    plt.ylabel("Count")
+    plt.legend(title="is_ai_data")
+    plt.tight_layout()
+    plt.show()
+
     return
 
 
