@@ -152,6 +152,36 @@ def _(VISUALS_DIR, launch_counts_2010_pd, plt, sns):
 
 
 @app.cell
+def _(mo):
+    mo.md(r"""### Median valuation per year""")
+    return
+
+
+@app.cell
+def _(df):
+    df.head()
+    return
+
+
+@app.cell
+def _(df, pl):
+    df_valuation = (df
+        .select(["name", "city", "launch_year", "growth_stage", "valuation", "valuation_market_cap"])
+        .unique(subset=["name"], keep="first")
+        .filter(pl.col("city").str.contains("Berlin"))
+        .filter(pl.col("valuation").is_not_null())
+                   )
+    df_valuation
+    return (df_valuation,)
+
+
+@app.cell
+def _(df_valuation):
+    df_valuation.select("valuation_market_cap").unique()
+    return
+
+
+@app.cell
 def _():
     return
 
